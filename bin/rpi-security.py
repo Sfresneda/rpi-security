@@ -9,6 +9,7 @@ import time
 import rpisec
 from threading import Thread
 
+from rpisec.enumerations import TextChains
 
 def parse_arguments():
     p = argparse.ArgumentParser(description='A simple security system to run on a Raspberry Pi.')
@@ -75,7 +76,7 @@ if __name__ == "__main__":
     signal.signal(signal.SIGTERM, rpisec.exit_clean)
     try:
         logger.info("rpi-security running")
-        rpis.telegram_send_message('rpi-security running')
+        rpis.telegram_send_message(TextChains.CMMN_SYSTEM_RUNNING.value)
         while True:
             time.sleep(100)
     except KeyboardInterrupt:

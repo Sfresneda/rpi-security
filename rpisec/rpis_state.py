@@ -5,20 +5,33 @@ from datetime import timedelta
 from threading import Lock
 import time
 
+from rpisec.enumerations import TextChains
 
 logger = logging.getLogger()
 
 
+def get_readable_delta(then):
+    td = timedelta(seconds=time.time() - then)
+    days, hours, minutes = td.days, td.seconds // 3600, td.seconds // 60 % 60
+    text = TextChains.TF_MINUTES.value.format(minutes)
+    if hours > 0:
+        text = TextChains.TF_HOURS.value.format(hours) + TextChains.TF_AND.value + text
+        if 0 < days:
+            text = TextChains.TF_DAYS.value.format(days) + TextChains.TF_COMMA_SEPARATOR.value + text
+    return text
+
+
 class RpisState(object):
-    '''
+    """
     Contains state information about the alarm and handles updates
-    '''
+    """
+
     def __init__(self, rpis):
         self.rpis = rpis
         self.lock = Lock()
         self.start_time = time.time()
         self.current = 'disarmed'
-        self.previous = 'Not running'
+        self.previous = 'notRunning'
         self.last_change = time.time()
         self.last_packet = time.time()
         self.last_mac = None
@@ -31,8 +44,10 @@ class RpisState(object):
                 self.previous = self.current
                 self.current = new_state
                 self.last_change = time.time()
-                self.rpis.telegram_send_message("rpi-security is now {0}".format(self.current))
-                logger.info("rpi-security is now {0}".format(self.current))
+                self.rpis.telegram_send_message(TextChains.CS_TITLE.value.format(
+                    TextChains.status_constant_to_enum(self.current).value)
+                )
+                logger.info("System is now {0}".format(self.current))
 
     def update_triggered(self, triggered):
         with self.lock:
@@ -42,16 +57,6 @@ class RpisState(object):
         with self.lock:
             self.last_mac = mac
             self.last_packet = time.time()
-
-    def _get_readable_delta(self, then):
-        td = timedelta(seconds=time.time() - then)
-        days, hours, minutes = td.days, td.seconds // 3600, td.seconds // 60 % 60
-        text = '{0} minutes'.format(minutes)
-        if hours > 0:
-            text = '{0} hours and '.format(hours) + text
-            if days > 0:
-                text = '{0} days, '.format(days) + text
-        return text
 
     def check(self):
         if self.current == 'disabled':
@@ -68,20 +73,13 @@ class RpisState(object):
             self.update_state('disarmed')
 
     def generate_status_text(self):
-        return (
-            "*rpi-security status*\n"
-            "Current state: _{0}_ \n"
-            "Last state: _{1}_ \n"
-            "Last change: _{2} ago_ \n"
-            "Uptime: _{3}_ \n"
-            "Last MAC detected: _{4} {5} ago_ \n"
-            "Alarm triggered: _{6}_ \n"
-            ).format(
-                    self.current,
-                    self.previous,
-                    self._get_readable_delta(self.last_change),
-                    self._get_readable_delta(self.start_time),
-                    self.last_mac,
-                    self._get_readable_delta(self.last_packet),
-                    self.triggered
-                )
+        status = "".join([
+            TextChains.ST_TITLE_BOLD.value,
+            TextChains.ST_CURRENT_STATE_TITLE.value.format(TextChains.status_constant_to_enum(self.current).value),
+            TextChains.ST_LAST_STATE_TITLE.value.format(TextChains.status_constant_to_enum(self.previous).value),
+            TextChains.ST_LAST_CHANGE_TITLE.value.format(get_readable_delta(self.last_change)),
+            TextChains.ST_LAST_MAC_DETECTED_TITLE.value.format(self.last_mac, get_readable_delta(self.start_time)),
+            TextChains.ST_UPTIME_TITLE.value.format(get_readable_delta(self.start_time)),
+            TextChains.ST_ALARM_TRIGGERED_TITLE_TRUE.value if self.triggered else TextChains.ST_ALARM_TRIGGERED_TITLE_FALSE.value
+        ])
+        return status

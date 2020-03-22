@@ -3,6 +3,7 @@
 import logging
 import time
 
+from rpisec.enumerations import TextChains
 
 logger = logging.getLogger()
 
@@ -22,16 +23,20 @@ def process_photos(rpis, camera):
                 time.sleep(2)
                 while not camera.queue.empty():
                     if rpis.state.current != 'armed':
-                        logger.debug('Stopping photo processing as state is now {0} and clearing queue'.format(rpis.state.current))
+                        logger.debug('Stopping photo processing as state is now {0} and clearing queue'
+                                     .format(rpis.state.current)
+                                     )
                         camera.clear_queue()
                         break
                     photo = camera.queue.get()
                     logger.debug('Processing the photo {0}, state is {1}'.format(photo, rpis.state.current))
                     rpis.state.update_triggered(True)
-                    rpis.telegram_send_message('Motioned detected')
+                    rpis.telegram_send_message(TextChains.CMMN_MOTION_DETECTED.value)
                     if rpis.telegram_send_file(photo):
                         camera.queue.task_done()
             else:
-                logger.debug('Stopping photo processing as state is now {0} and clearing queue'.format(rpis.state.current))
+                logger.debug('Stopping photo processing as state is now {0} and clearing queue'
+                             .format(rpis.state.current)
+                             )
                 camera.clear_queue()
         time.sleep(0.1)
